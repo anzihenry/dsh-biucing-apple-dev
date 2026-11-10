@@ -1,0 +1,38 @@
+{
+  "name": "dsh-biucing-apple-dev",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Apple platform development toolbox for DeepSeek Harness: build, run, test and debug iOS, macOS, tvOS, watchOS and visionOS apps with Xcode, simulators and signing inspection.",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "lib/*.js",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": []
+    }
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

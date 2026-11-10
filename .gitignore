@@ -71,3 +71,6 @@ yarn-error.log*
 *.cer
 *.pem
 *.key
+
+# Apple Dev plugin artifacts (derived data, build/test logs, screenshots)
+.apple-dev/

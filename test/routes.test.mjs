@@ -1,0 +1,208 @@
+/**
+ * Route-level tests for the settings-page API, using mocked request/response
+ * objects and a fake runner. They pin the JSON contract the Client module
+ * depends on without needing the plugin to be installed.
+ */
+import assert from 'node:assert/strict'
+import { EventEmitter } from 'node:events'
+import test from 'node:test'
+import { registerAppleDevRoutes, STATUS_PATH, ACTION_PATH } from '../lib/ui.js'
+
+const DEVICES_JSON = JSON.stringify({
+  devices: {
+    'com.apple.CoreSimulator.SimRuntime.iOS-27-2': [
+      { udid: 'AAAAAAAA-0000-0000-0000-000000000001', name: 'iPhone 17', state: 'Shutdown', isAvailable: true },
+      { udid: 'AAAAAAAA-0000-0000-0000-000000000002', name: 'iPhone Air', state: 'Booted', isAvailable: true },
+      { udid: 'AAAAAAAA-0000-0000-0000-000000000003', name: 'Stale Phone', state: 'Shutdown', isAvailable: false },
+    ],
+  },
+})
+
+function fakeRunner(calls = []) {
+  return async (argv) => {
+    calls.push(argv)
+    const joined = argv.join(' ')
+    if (joined.startsWith('xcrun simctl list devices')) {
+      return { ok: true, argv, command: joined, exitCode: 0, stdout: DEVICES_JSON, stderr: '' }
+    }
+    if (joined.startsWith('xcrun simctl boot ') || joined.startsWith('xcrun simctl shutdown ')) {
+      return { ok: true, argv, command: joined, exitCode: 0, stdout: '', stderr: '' }
+    }
+    if (joined.startsWith('xcrun simctl bootstatus ')) {
+      return { ok: true, argv, command: joined, exitCode: 0, stdout: 'Monitoring boot status\n', stderr: '' }
+    }
+    if (joined === 'xcrun simctl list runtimes --json') {
+      return {
+        ok: true,
+        argv,
+        command: joined,
+        exitCode: 0,
+        stdout: JSON.stringify({ runtimes: [{ identifier: 'com.apple.CoreSimulator.SimRuntime.iOS-27-2', name: 'iOS 27.2', version: '27.2', isAvailable: true }] }),
+        stderr: '',
+      }
+    }
+    if (joined === 'xcodebuild -version') {
+      return { ok: true, argv, command: joined, exitCode: 0, stdout: 'Xcode 27.2\nBuild version 27B52\n', stderr: '' }
+    }
+    if (joined === 'xcode-select -p') {
+      return { ok: true, argv, command: joined, exitCode: 0, stdout: '/Applications/Xcode-27.2.0.app/Contents/Developer\n', stderr: '' }
+    }
+    if (joined === 'xcodebuild -showsdks') {
+      return { ok: true, argv, command: joined, exitCode: 0, stdout: 'iOS SDKs:\n\tiOS 27.2                      \t-sdk iphoneos27.2\n', stderr: '' }
+    }
+    return { ok: false, argv, command: joined, exitCode: 1, stdout: '', stderr: 'unsupported in fake runner' }
+  }
+}
+
+function fakeScope() {
+  const routes = new Map()
+  const disposers = []
+  const webServer = {
+    register(route) {
+      routes.set(route.path, route)
+      const dispose = () => routes.delete(route.path)
+      disposers.push(dispose)
+      return dispose
+    },
+  }
+  const scope = {
+    webServer,
+    routes,
+    get(name) {
+      if (name === 'subprocess') {
+        return { resolveExecutable: async (command) => `/usr/bin/${command}` }
+      }
+      return undefined
+    },
+  }
+  return scope
+}
+
+function mockRequest({ method = 'GET', url, headers = {}, body } = {}) {
+  const req = new EventEmitter()
+  req.method = method
+  req.url = url
+  req.headers = { host: '127.0.0.1:63971', 'sec-fetch-site': 'same-origin', ...headers }
+  if (body !== undefined) {
+    req.destroy = () => {}
+    queueMicrotask(() => {
+      req.emit('data', Buffer.from(typeof body === 'string' ? body : JSON.stringify(body)))
+      req.emit('end')
+    })
+  }
+  return req
+}
+
+function mockResponse() {
+  const res = {
+    status: 0,
+    headers: {},
+    body: '',
+    writeHead(status, headers) {
+      this.status = status
+      Object.assign(this.headers, headers || {})
+    },
+    end(body) {
+      this.body = body || ''
+    },
+  }
+  return res
+}
+
+async function call(scope, path, request) {
+  const route = scope.routes.get(path)
+  assert.ok(route, `route ${path} must be registered`)
+  const res = mockResponse()
+  await route.handler(request, res)
+  return res
+}
+
+function json(res) {
+  return JSON.parse(res.body)
+}
+
+test('registerAppleDevRoutes registers both exact routes and disposes them', () => {
+  const scope = fakeScope()
+  const dispose = registerAppleDevRoutes(scope, { xcodebuild: 'xcodebuild' }, fakeRunner())
+  assert.equal(scope.routes.get(STATUS_PATH).kind, 'exact')
+  assert.equal(scope.routes.get(ACTION_PATH).kind, 'exact')
+  dispose()
+  assert.equal(scope.routes.size, 0)
+})
+
+test('GET status returns the toolchain contract and available simulators only', async () => {
+  const scope = fakeScope()
+  registerAppleDevRoutes(scope, { xcodebuild: 'xcodebuild' }, fakeRunner())
+  const res = await call(scope, STATUS_PATH, mockRequest({ url: STATUS_PATH }))
+  assert.equal(res.status, 200)
+  const payload = json(res)
+  assert.equal(payload.platform, 'darwin')
+  assert.equal(payload.toolchain.xcodebuild.version, '27.2')
+  assert.equal(payload.toolchain.xcodebuild.build, '27B52')
+  assert.ok(Array.isArray(payload.toolchain.sdks))
+  assert.equal(payload.signing.count, 0)
+  assert.equal(payload.simulators.length, 2)
+  assert.ok(payload.simulators.every((device) => device.isAvailable !== false))
+  assert.deepEqual(Object.keys(payload.simulators[0]).sort(), ['isAvailable', 'name', 'osVersion', 'platform', 'state', 'udid'])
+  assert.equal(typeof payload.generatedAt, 'string')
+})
+
+test('status cache serves repeat requests and refresh=1 bypasses it', async () => {
+  const scope = fakeScope()
+  const calls = []
+  registerAppleDevRoutes(scope, { xcodebuild: 'xcodebuild' }, fakeRunner(calls))
+  await call(scope, STATUS_PATH, mockRequest({ url: STATUS_PATH }))
+  const afterFirst = calls.length
+  await call(scope, STATUS_PATH, mockRequest({ url: STATUS_PATH }))
+  assert.equal(calls.length, afterFirst, 'a cached status must not run commands again')
+  await call(scope, STATUS_PATH, mockRequest({ url: `${STATUS_PATH}?refresh=1` }))
+  assert.ok(calls.length > afterFirst)
+})
+
+test('cross-origin status and action requests are refused', async () => {
+  const scope = fakeScope()
+  registerAppleDevRoutes(scope, { xcodebuild: 'xcodebuild' }, fakeRunner())
+  const status = await call(scope, STATUS_PATH, mockRequest({ url: STATUS_PATH, headers: { 'sec-fetch-site': 'cross-site' } }))
+  assert.equal(status.status, 403)
+  const action = await call(scope, ACTION_PATH, mockRequest({ method: 'POST', url: ACTION_PATH, headers: { origin: 'https://evil.example' }, body: { action: 'boot', device: 'iPhone 17' } }))
+  assert.equal(action.status, 403)
+})
+
+test('POST boot resolves the device, boots it and returns refreshed simulators', async () => {
+  const scope = fakeScope()
+  const calls = []
+  registerAppleDevRoutes(scope, { xcodebuild: 'xcodebuild' }, fakeRunner(calls))
+  const res = await call(scope, ACTION_PATH, mockRequest({ method: 'POST', url: ACTION_PATH, body: { action: 'boot', device: 'iPhone 17' } }))
+  assert.equal(res.status, 200)
+  const payload = json(res)
+  assert.equal(payload.ok, true)
+  assert.equal(payload.action, 'boot')
+  assert.match(payload.message, /booted/i)
+  assert.equal(payload.simulators.length, 2, 'action responses carry the available devices')
+  assert.ok(payload.simulators.every((device) => device.isAvailable !== false))
+  assert.ok(calls.some((argv) => argv.join(' ').includes('simctl boot AAAAAAAA-0000-0000-0000-000000000001')))
+})
+
+test('POST action validates the allowlist, device and JSON body', async () => {
+  const scope = fakeScope()
+  registerAppleDevRoutes(scope, { xcodebuild: 'xcodebuild' }, fakeRunner())
+  const badAction = await call(scope, ACTION_PATH, mockRequest({ method: 'POST', url: ACTION_PATH, body: { action: 'rm -rf', device: 'iPhone 17' } }))
+  assert.equal(badAction.status, 400)
+  assert.match(json(badAction).error, /action must be one of/)
+  const noDevice = await call(scope, ACTION_PATH, mockRequest({ method: 'POST', url: ACTION_PATH, body: { action: 'boot' } }))
+  assert.equal(noDevice.status, 400)
+  const badJson = await call(scope, ACTION_PATH, mockRequest({ method: 'POST', url: ACTION_PATH, body: '{nope' }))
+  assert.equal(badJson.status, 400)
+  const unknownDevice = await call(scope, ACTION_PATH, mockRequest({ method: 'POST', url: ACTION_PATH, body: { action: 'boot', device: 'iPhone 99' } }))
+  assert.equal(unknownDevice.status, 404)
+  const wrongMethod = await call(scope, ACTION_PATH, mockRequest({ method: 'GET', url: ACTION_PATH }))
+  assert.equal(wrongMethod.status, 405)
+})
+
+test('DELETE status is rejected with an allow header', async () => {
+  const scope = fakeScope()
+  registerAppleDevRoutes(scope, { xcodebuild: 'xcodebuild' }, fakeRunner())
+  const res = await call(scope, STATUS_PATH, mockRequest({ method: 'DELETE', url: STATUS_PATH }))
+  assert.equal(res.status, 405)
+  assert.equal(res.headers.allow, 'GET, HEAD')
+})

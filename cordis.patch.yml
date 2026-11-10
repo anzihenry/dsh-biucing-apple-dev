@@ -1,0 +1,22 @@
+# dsh-biucing-apple-dev: Apple platform development, debugging and testing.
+#
+# The Host row carries the whole feature: seven agent tools (environment,
+# project, build, test, simulator, logs, signing) plus a read-only status route
+# and one action route that the "Apple Dev" settings page calls. The Client half
+# (client.js) renders that page; the Host half works without it.
+- insert:
+    - id: biucing-apple-dev
+      name: 'dsh-biucing-apple-dev'
+      config:
+        # Toolchain discovery and command execution.
+        xcodebuild: xcodebuild
+        developerDir: ''
+        # Where builds write artifacts. Relative paths resolve against the
+        # session working directory. Empty means xcodebuild's own default.
+        derivedDataPath: .apple-dev/DerivedData
+        # Logs kept under <derivedDataPath>/../logs by the build/test tools.
+        logDirectory: .apple-dev/logs
+        # Per-command wall clock limit in milliseconds.
+        timeoutMs: 900000
+        # Bytes retained per output stream; the full stream is spilled to disk.
+        maxOutputBytes: 4000000

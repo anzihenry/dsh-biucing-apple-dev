@@ -239,9 +239,7 @@ window.__ModuleLoader__.load({
       '.biucing-adp-root{display:flex;flex-direction:column;gap:16px;max-width:760px;color:var(--dsw-alias-label-primary);font-family:inherit;line-height:1.5;}',
       '.biucing-adp-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;}',
       '.biucing-adp-head-main{display:flex;align-items:center;gap:12px;min-width:0;}',
-      '.biucing-adp-mark{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;flex:none;border-radius:10px;',
-      'border:1px solid var(--dsw-alias-settings-card-stroke,var(--dsw-alias-border-l2));',
-      'background:var(--dsw-alias-settings-card-fill,var(--dsw-alias-bg-layer-1));color:var(--dsw-alias-label-primary);}',
+      '.biucing-adp-mark{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;flex:none;}',
       '.biucing-adp-head-text{display:flex;flex-direction:column;gap:2px;min-width:0;}',
       '.biucing-adp-title{margin:0;font-size:20px;line-height:28px;font-weight:600;color:var(--dsw-alias-label-primary);}',
       '.biucing-adp-subtitle{margin:0;font-size:13px;line-height:18px;color:var(--dsw-alias-label-tertiary);}',
@@ -493,34 +491,59 @@ window.__ModuleLoader__.load({
      * Presentational pieces
      * ------------------------------------------------------------------ */
     /**
-     * Original Apple Dev mark: a rounded terminal window with a prompt chevron.
-     * Inherits `currentColor`, so it follows the theme and the active nav row.
+     * Xcode-inspired bundle mark: a blueprint-blue tile with a subtle grid and
+     * a dark claw hammer. An original glyph in the spirit of Xcode's icon —
+     * Apple's own artwork is not reproduced.
      * @param {object} props `{ size, active }` owner props plus optional size.
      * @returns {object} SVG element.
      */
-    function AppleDevMark(props) {
+    function XcodeMark(props) {
       const size = Number(props && props.size) || 18;
       const active = Boolean(props && props.active);
-      const weight = active ? 2 : 1.7;
-      const stroke = {
-        stroke: 'currentColor',
-        strokeWidth: weight,
-        strokeLinecap: 'round',
-        strokeLinejoin: 'round',
-      };
+      const rawId = typeof React.useId === 'function' ? React.useId() : 'mark';
+      const uid = String(rawId).replace(/[^a-zA-Z0-9_-]/g, '') || 'mark';
+      const id = (name) => 'adp-xc-' + uid + '-' + name;
       return h('svg', {
         width: size,
         height: size,
-        viewBox: '0 0 24 24',
-        fill: 'none',
+        viewBox: '0 0 128 128',
         'aria-hidden': true,
         focusable: false,
-        style: { display: 'block', opacity: active ? 1 : 0.9 },
+        style: { display: 'block', opacity: active ? 1 : 0.94 },
       },
-        h('rect', Object.assign({ x: 3.2, y: 3.2, width: 17.6, height: 17.6, rx: 4.4, stroke: 'currentColor', strokeWidth: weight }, { fill: 'none' })),
-        h('path', Object.assign({ d: 'M8 8.6l4 3.4-4 3.4' }, stroke)),
-        h('rect', { x: 13.4, y: 13.5, width: 4.4, height: 1.8, rx: 0.9, fill: 'currentColor' }),
-        h('rect', { x: 13.4, y: 7.2, width: 3.4, height: 1.4, rx: 0.7, fill: 'currentColor', opacity: 0.55 }));
+      h('defs', null,
+        h('linearGradient', { id: id('bg'), x1: 0, y1: 0, x2: 0, y2: 1 },
+          h('stop', { offset: 0, stopColor: '#1FA2FF' }),
+          h('stop', { offset: 1, stopColor: '#0A63DC' })),
+        h('linearGradient', { id: id('steel'), x1: 0, y1: 0, x2: 0, y2: 1 },
+          h('stop', { offset: 0, stopColor: '#454B53' }),
+          h('stop', { offset: 0.5, stopColor: '#262A30' }),
+          h('stop', { offset: 1, stopColor: '#121519' })),
+        h('linearGradient', { id: id('grip'), x1: 0, y1: 0, x2: 0, y2: 1 },
+          h('stop', { offset: 0, stopColor: '#33383F' }),
+          h('stop', { offset: 1, stopColor: '#0D1013' })),
+        h('clipPath', { id: id('clip') },
+          h('rect', { x: 6, y: 6, width: 116, height: 116, rx: 26 })),
+        h('mask', { id: id('mask'), maskUnits: 'userSpaceOnUse', x: 0, y: 0, width: 128, height: 128 },
+          h('rect', { x: 32, y: 33, width: 66, height: 16, rx: 7, fill: '#fff' }),
+          h('rect', { x: 59.5, y: 47, width: 11, height: 62, rx: 5.5, fill: '#fff' }),
+          h('path', { d: 'M32 38 L52 47 L32 55 Z', fill: '#000' }),
+          h('path', { d: 'M32 41 L44 47 L32 50 Z', fill: '#fff' }))),
+      h('rect', { x: 6, y: 6, width: 116, height: 116, rx: 26, fill: 'url(#' + id('bg') + ')' }),
+      h('g', { clipPath: 'url(#' + id('clip') + ')' },
+        h('g', { stroke: '#FFFFFF', strokeOpacity: 0.11, strokeWidth: 1.2 },
+          h('path', { d: 'M34 6V122M64 6V122M94 6V122' }),
+          h('path', { d: 'M6 34H122M6 64H122M6 94H122' })),
+        h('g', { transform: 'rotate(45 64 64)' },
+          h('g', { mask: 'url(#' + id('mask') + ')' },
+            h('rect', { x: 32, y: 33, width: 66, height: 16, rx: 7, fill: 'url(#' + id('steel') + ')' }),
+            h('rect', { x: 59.5, y: 47, width: 11, height: 62, rx: 5.5, fill: 'url(#' + id('grip') + ')' }),
+            h('rect', { x: 59.5, y: 92, width: 11, height: 17, rx: 5.5, fill: '#0A0D11' })),
+          h('path', { d: 'M36 36 H88', stroke: '#8A929D', strokeOpacity: 0.5, strokeWidth: 1.4, strokeLinecap: 'round' }))),
+      h('rect', {
+        x: 6.8, y: 6.8, width: 114.4, height: 114.4, rx: 25.4,
+        fill: 'none', stroke: '#FFFFFF', strokeOpacity: 0.2, strokeWidth: 1.6,
+      }));
     }
 
     /**
@@ -1108,7 +1131,7 @@ window.__ModuleLoader__.load({
         h('section', { className: 'biucing-adp-root', 'aria-label': t('section.title') },
           h('header', { className: 'biucing-adp-head' },
             h('div', { className: 'biucing-adp-head-main' },
-              h('span', { className: 'biucing-adp-mark' }, h(AppleDevMark, { size: 20 })),
+              h('span', { className: 'biucing-adp-mark' }, h(XcodeMark, { size: 34 })),
               h('div', { className: 'biucing-adp-head-text' },
                 h('h2', { className: 'biucing-adp-title' }, t('section.title')),
                 h('p', { className: 'biucing-adp-subtitle' }, t('section.subtitle')))),
@@ -1166,7 +1189,7 @@ window.__ModuleLoader__.load({
      * @returns {object} mark element.
      */
     function SectionIcon(props) {
-      return h(AppleDevMark, {
+      return h(XcodeMark, {
         size: Number(props && props.size) || 16,
         active: Boolean(props && props.active),
       });

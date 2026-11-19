@@ -2,10 +2,11 @@
  * Host half of the Apple Dev bundle.
  *
  * Registers the agent tools that discover the Xcode toolchain, inspect
- * projects, build, test, drive simulators, read logs/crashes and inspect code
- * signing — plus the two loopback JSON routes the "Apple Dev" settings page
- * calls. The settings page is a Client module (`client.js`); every capability
- * it uses exists as a tool too, so the same operation has one implementation.
+ * projects, build, test, drive simulators, read logs/crashes, inspect code
+ * signing and call Xcode's own MCP tools — plus the two loopback JSON routes
+ * the "Apple Dev" settings page calls. The settings page is a Client module
+ * (`client.js`); every capability it uses exists as a tool too, so the same
+ * operation has one implementation.
  *
  * All child processes go through the Host `subprocess` service
  * (`lib/runner.js`); this package imports no other runtime package.
@@ -15,6 +16,8 @@ import { resolveConfig, createRunner } from './lib/runner.js'
 import { createEnvTools } from './lib/tools-env.js'
 import { createProjectTools } from './lib/tools-project.js'
 import { createDiagTools } from './lib/tools-diag.js'
+import { createMcpTools } from './lib/tools-mcp.js'
+import { createXcodeMcp } from './lib/mcp.js'
 import { registerAppleDevRoutes } from './lib/ui.js'
 
 /** The registry every tool registers into, and the process seam they run on. */
@@ -53,7 +56,17 @@ export function losslessTool(tool) {
 export function apply(ctx, config) {
   const resolved = resolveConfig(config)
   const runner = createRunner(ctx, resolved)
-  const factories = [createEnvTools, createProjectTools, createDiagTools]
+  // One lazily-connected MCP bridge per plugin instance. Disposal terminates
+  // the managed child process range, so a plugin reload never leaves an
+  // orphan bridge attached to Xcode.
+  const mcp = createXcodeMcp(ctx, resolved)
+  ctx.effect(() => () => mcp.dispose())
+  const factories = [
+    createEnvTools,
+    createProjectTools,
+    createDiagTools,
+    (scope, cfg, run) => (cfg.mcpEnabled ? createMcpTools(scope, cfg, run, mcp) : []),
+  ]
 
   for (const factory of factories) {
     let tools = []
@@ -70,6 +83,6 @@ export function apply(ctx, config) {
 
   // Optional UI surface: a profile without a web server still gets every tool.
   ctx.inject(['webServer'], (scope) => {
-    scope.effect(() => registerAppleDevRoutes(scope, resolved, runner))
+    scope.effect(() => registerAppleDevRoutes(scope, resolved, runner, mcp))
   })
 }

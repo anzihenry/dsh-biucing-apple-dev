@@ -12,6 +12,11 @@ Read it before editing `lib/`.
   `apply(ctx, config)`.
 - Every child process goes through the `subprocess` service, wrapped by
   `lib/runner.js` `createRunner(ctx, config)`. Never use `node:child_process`.
+- The one long-lived child is the Xcode MCP bridge (`lib/mcp.js`). It uses
+  `subprocess.spawn` with `stdio: { stdin: 'pipe', stdout: 'pipe', ... }` — the
+  service's documented protocol-framing mode — and speaks newline-delimited
+  JSON-RPC 2.0. It is spawned lazily on the first MCP tool call and disposed by
+  the `ctx.effect` registered in `index.js`.
 - Register resources inside `apply` with `ctx.effect(() => disposer)`.
 - The macOS-only guard lives in `lib/runner.js` `platformProblem()`; every tool
   returns a readable `{ ok: false, ... }` result instead of throwing when the
@@ -25,6 +30,9 @@ Each `lib/tools-*.js` exports one factory with this exact signature:
 export function createXxxTools(ctx, config, runner) {
   return [toolDefinition, ...]
 }
+
+// MCP gateway only: a fourth argument carries the lazily-connected client.
+export function createMcpTools(ctx, config, runner, mcp) { ... }
 ```
 
 `ctx` is the plugin context, `config` is the normalized config object from
@@ -83,13 +91,19 @@ stdout, stderr, stdoutTruncated, stderrTruncated, truncated, durationMs }`.
 
 ## Routes consumed by `client.js`
 
-`registerAppleDevRoutes(scope, config, runner)` in `lib/ui.js` owns both routes
-(`scope` is the `webServer` inject scope). The Client module must not add routes.
+`registerAppleDevRoutes(scope, config, runner, mcp)` in `lib/ui.js` owns both
+routes (`scope` is the `webServer` inject scope; `mcp` is the optional
+lazily-connected Xcode MCP client). The Client module must not add routes.
 
 - `GET /dsh-biucing-apple-dev/status` →
   `{ ok: true, generatedAt: string, toolchain: {...}, simulators: [...],
-     signing: { count: number, identities: string[] }, error?: string }`
+     signing: { count: number, identities: string[] }, error?: string,
+     xcodeMcp?: { state, server?, toolCount?, approval?, bridge?, error?, stale? } }`
   Simulators: `{ udid, name, platform, osVersion, state }`.
+  `xcodeMcp` is present only when the route was registered with an MCP client.
+  `state` is `connecting | ready | unavailable | disabled`; the route never
+  waits for the bridge — it starts one bounded background probe (8 s) and
+  serves the cached snapshot (15 s when ready, 30 s after a failure).
 - `POST /dsh-biucing-apple-dev/action` body
   `{ action: 'boot'|'shutdown'|'open'|'erase', device: string }` (device is a
   UDID or exact device name) →
@@ -103,6 +117,11 @@ stdout, stderr, stdoutTruncated, stderrTruncated, truncated, durationMs }`.
   `saveLog`, `assertSucceeded`, `summarizeResult`, `platformProblem`, `nowIso`.
 - `lib/format.js`: `clip`, `tailLines`, `indent`, `plural`, `formatDuration`,
   `formatBytes`, `renderText`, `bulletList`, `sections`, `errorMessage`.
+- `lib/mcp.js` (owned by the Lead): `createXcodeMcp`, `XcodeMcpClient`,
+  `McpLineDecoder`, `McpError`, `isApprovalRequired`, `approvalHint`,
+  `normalizeCallResult`, `summarizeTool`, `requiredParameters`.
+- `lib/tools-mcp.js` (owned by the Lead): `createMcpTools`, `MUTATING_TOOLS`,
+  `shapeCatalog`, `parseWorkspaces`, and the three report formatters.
 - `lib/env.js` (owned by the Lead): `readToolchain`, parsing helpers,
   `listXcodes`, `parseSimulatorList`.
 - `lib/simulator.js` (owned by the Lead): `listSimulators`, `boot`, `shutdown`,
@@ -116,6 +135,7 @@ One owner per file, so concurrent changes never collide:
 | Area | Files |
 | --- | --- |
 | Plugin shell, environment and simulators | `index.js`, `lib/runner.js`, `lib/format.js`, `lib/env.js`, `lib/simulator.js`, `lib/tools-env.js`, `lib/ui.js`, `locale/*`, `icon.svg`, `README.md`, `package.json`, `cordis.patch.yml` |
+| Xcode MCP gateway | `lib/mcp.js`, `lib/tools-mcp.js`, `test/mcp.test.mjs` |
 | Project inspection, build and test | `lib/project.js`, `lib/build.js`, `lib/test.js`, `lib/tools-project.js` |
 | Diagnostics: signing and logs | `lib/signing.js`, `lib/logs.js`, `lib/tools-diag.js` |
 | Settings page (Client half) | `client.js` |

@@ -43,7 +43,7 @@ window.__ModuleLoader__.load({
     const STRINGS = {
       en: {
         'section.title': 'Apple Dev',
-        'section.subtitle': 'Xcode toolchain and simulators',
+        'section.subtitle': 'Xcode toolchain, Xcode MCP and simulators',
         'refresh': 'Refresh',
         'refreshing': 'Refreshing…',
         'lastUpdated': 'Last refreshed',
@@ -70,6 +70,24 @@ window.__ModuleLoader__.load({
         'toolchain.runtimes': 'Simulator runtimes',
         'toolchain.xcodes': 'Installed Xcodes',
         'toolchain.warnings': 'Warnings',
+        'mcp.title': 'Xcode MCP',
+        'mcp.server': 'Server',
+        'mcp.toolsLabel': 'Tools',
+        'mcp.toolCount': '{count} tools',
+        'mcp.approvalLabel': 'Agent approval',
+        'mcp.bridgeLabel': 'Bridge',
+        'mcp.state.ready': 'Connected',
+        'mcp.state.connecting': 'Connecting…',
+        'mcp.state.unavailable': 'Not connected',
+        'mcp.state.disabled': 'Disabled',
+        'mcp.state.unknown': 'Unknown',
+        'mcp.approval.granted': 'Granted',
+        'mcp.approval.pending': 'Pending',
+        'mcp.approval.unknown': 'Not checked',
+        'mcp.readyHint': 'The agent can call build, test, preview, device-interaction, console-log and debugger tools.',
+        'mcp.connectingHint': 'Starting xcrun mcpbridge and reading its tool catalog.',
+        'mcp.unavailableHint': 'Start Xcode 26 or later, then refresh. The bridge process is xcrun mcpbridge.',
+        'mcp.disabledHint': 'Set mcpEnabled: true in the plugin configuration to expose Xcode MCP tools.',
         'simulators.title': 'Simulators',
         'simulators.count': '{count} total',
         'simulators.empty': 'No simulators installed',
@@ -95,7 +113,7 @@ window.__ModuleLoader__.load({
       },
       zh: {
         'section.title': 'Apple 开发',
-        'section.subtitle': 'Xcode 工具链与模拟器',
+        'section.subtitle': 'Xcode 工具链、Xcode MCP 与模拟器',
         'refresh': '刷新',
         'refreshing': '正在刷新…',
         'lastUpdated': '最近刷新',
@@ -122,6 +140,24 @@ window.__ModuleLoader__.load({
         'toolchain.runtimes': '模拟器运行时',
         'toolchain.xcodes': '已安装的 Xcode',
         'toolchain.warnings': '警告',
+        'mcp.title': 'Xcode MCP',
+        'mcp.server': '服务器',
+        'mcp.toolsLabel': '工具',
+        'mcp.toolCount': '{count} 个',
+        'mcp.approvalLabel': 'Agent 审批',
+        'mcp.bridgeLabel': '桥接',
+        'mcp.state.ready': '已连接',
+        'mcp.state.connecting': '连接中…',
+        'mcp.state.unavailable': '未连接',
+        'mcp.state.disabled': '已禁用',
+        'mcp.state.unknown': '未知',
+        'mcp.approval.granted': '已批准',
+        'mcp.approval.pending': '待批准',
+        'mcp.approval.unknown': '尚未检查',
+        'mcp.readyHint': 'Agent 可调用构建、测试、Preview、模拟器交互、控制台日志与调试器命令。',
+        'mcp.connectingHint': '正在启动 xcrun mcpbridge 并读取工具目录。',
+        'mcp.unavailableHint': '请启动 Xcode 26 或更新版本后刷新；桥接进程为 xcrun mcpbridge。',
+        'mcp.disabledHint': '在插件配置中设置 mcpEnabled: true 后即可暴露 Xcode MCP 工具。',
         'simulators.title': '模拟器',
         'simulators.count': '共 {count} 个',
         'simulators.empty': '没有安装模拟器',
@@ -230,6 +266,7 @@ window.__ModuleLoader__.load({
       '.biucing-adp-card-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;}',
       '.biucing-adp-card-title{margin:0;font-size:14px;line-height:22px;font-weight:600;color:var(--dsw-alias-label-primary);}',
       '.biucing-adp-card-meta{font-size:12px;line-height:18px;color:var(--dsw-alias-label-caption,var(--dsw-alias-label-secondary));',
+      '.biucing-adp-card-hint{margin:0;font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary);}',
       'font-variant-numeric:tabular-nums;}',
       '.biucing-adp-fields{display:flex;flex-direction:column;gap:0;margin:0;}',
       '.biucing-adp-field{display:grid;grid-template-columns:minmax(132px,.85fr) minmax(0,1.6fr);gap:4px 16px;align-items:start;',
@@ -787,6 +824,56 @@ window.__ModuleLoader__.load({
     }
 
     /**
+     * Xcode MCP card: bridge state, server identity, tool count and the
+     * one-time agent approval Xcode grants per project folder.
+     * @param {object} props `{ mcp, t }`.
+     * @returns {object} card element.
+     */
+    function McpCard(props) {
+      const t = props.t;
+      const info = props.mcp && typeof props.mcp === 'object' ? props.mcp : {};
+      const state = typeof info.state === 'string' ? info.state : 'unknown';
+      const server = info.server && typeof info.server === 'object' ? info.server : {};
+      const toolCount = typeof info.toolCount === 'number' ? info.toolCount : null;
+      const approval = typeof info.approval === 'string' ? info.approval : 'unknown';
+      const bridge = typeof info.bridge === 'string' && info.bridge.length > 0 ? info.bridge : '';
+      const knownStates = ['ready', 'connecting', 'unavailable', 'disabled'];
+      const stateLabel = t('mcp.state.' + (knownStates.indexOf(state) === -1 ? 'unknown' : state));
+      const badgeKind = state === 'ready' ? 'booted' : state === 'unavailable' ? 'other' : 'shutdown';
+      const approvalLabel = approval === 'granted'
+        ? t('mcp.approval.granted')
+        : approval === 'pending' ? t('mcp.approval.pending') : t('mcp.approval.unknown');
+      const hintKey = state === 'ready' ? 'mcp.readyHint'
+        : state === 'connecting' ? 'mcp.connectingHint'
+          : state === 'disabled' ? 'mcp.disabledHint' : 'mcp.unavailableHint';
+      const serverLabel = server.name
+        ? String(server.name) + (server.version ? ' ' + server.version : '')
+        : t('value.unknown');
+      const rows = [
+        { key: 'server', label: t('mcp.server'), value: serverLabel },
+        {
+          key: 'tools',
+          label: t('mcp.toolsLabel'),
+          value: toolCount === null ? t('value.unknown') : format(t('mcp.toolCount'), { count: toolCount }),
+        },
+        { key: 'approval', label: t('mcp.approvalLabel'), value: approvalLabel },
+        { key: 'bridge', label: t('mcp.bridgeLabel'), value: bridge || t('value.unknown'), mono: true },
+      ];
+      return h('div', { className: 'biucing-adp-card' },
+        h('div', { className: 'biucing-adp-card-head' },
+          h('h3', { className: 'biucing-adp-card-title' }, t('mcp.title')),
+          h('span', { className: 'biucing-adp-badge biucing-adp-badge-' + badgeKind },
+            h('span', { className: 'biucing-adp-badge-dot', 'aria-hidden': true }),
+            h('span', null, stateLabel))),
+        h('dl', { className: 'biucing-adp-fields' },
+          rows.map((row) => h('div', { key: row.key, className: 'biucing-adp-field' },
+            h('dt', { className: 'biucing-adp-field-label' }, row.label),
+            h('dd', { className: 'biucing-adp-field-value' + (row.mono ? ' biucing-adp-mono' : '') }, row.value)))),
+        info.error ? h(Notice, { tone: 'error', text: String(info.error) }) : null,
+        h('p', { className: 'biucing-adp-card-hint' }, t(hintKey)));
+    }
+
+    /**
      * Loading state: one quiet card with a spinner and skeleton lines.
      * @param {object} props `{ t }`.
      * @returns {object} card element.
@@ -861,6 +948,7 @@ window.__ModuleLoader__.load({
 
       const aliveRef = useRef(true);
       const seqRef = useRef(0);
+      const mcpPollRef = useRef(0);
       const tRef = useRef(t);
       tRef.current = t;
 
@@ -875,7 +963,7 @@ window.__ModuleLoader__.load({
         const seq = ++seqRef.current;
         if (manual) setRefreshing(true);
         try {
-          const result = await requestJson(STATUS_ENDPOINT, {
+          const result = await requestJson(manual ? STATUS_ENDPOINT + '?refresh=1' : STATUS_ENDPOINT, {
             headers: { accept: 'application/json' },
             cache: 'no-store',
           });
@@ -911,6 +999,20 @@ window.__ModuleLoader__.load({
           seqRef.current += 1;
         };
       }, [fetchStatus]);
+
+      // The MCP bridge starts lazily on the Host, so the first status answer can
+      // be "connecting". Poll a few times until the probe settles.
+      useEffect(() => {
+        const info = snapshot && snapshot.xcodeMcp;
+        if (phase !== 'ready' || !info || info.state !== 'connecting') {
+          mcpPollRef.current = 0;
+          return undefined;
+        }
+        if (mcpPollRef.current >= 8) return undefined;
+        mcpPollRef.current += 1;
+        const timer = setTimeout(() => { void fetchStatus(false); }, 1500);
+        return () => clearTimeout(timer);
+      }, [phase, snapshot, fetchStatus]);
 
       const refresh = useCallback(() => {
         setNotice(null);
@@ -1040,6 +1142,7 @@ window.__ModuleLoader__.load({
             ? h(React.Fragment, null,
               reportError ? h(Notice, { tone: 'error', text: reportError }) : null,
               h(ToolchainCard, { snapshot: snapshot, t: t }),
+              snapshot.xcodeMcp ? h(McpCard, { mcp: snapshot.xcodeMcp, t: t }) : null,
               h(SimulatorsCard, {
                 simulators: simulators,
                 t: t,

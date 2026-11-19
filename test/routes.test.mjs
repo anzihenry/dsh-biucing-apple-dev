@@ -206,3 +206,69 @@ test('DELETE status is rejected with an allow header', async () => {
   assert.equal(res.status, 405)
   assert.equal(res.headers.allow, 'GET, HEAD')
 })
+
+test('status carries the Xcode MCP snapshot once the background probe settles', async () => {
+  const scope = fakeScope()
+  const fakeMcp = {
+    async listTools() {
+      return [{ name: 'BuildProject' }]
+    },
+    describe() {
+      return {
+        state: 'ready',
+        server: { name: 'xcode-tools', version: '25464' },
+        protocolVersion: '2025-06-18',
+        toolCount: 54,
+        approval: 'granted',
+      }
+    },
+  }
+  registerAppleDevRoutes(scope, { xcodebuild: 'xcodebuild', mcpCommand: 'xcrun', mcpArgs: ['mcpbridge'] }, fakeRunner(), fakeMcp)
+  const first = json(await call(scope, STATUS_PATH, mockRequest({ url: STATUS_PATH })))
+  assert.equal(first.xcodeMcp.state, 'connecting', 'the first answer must not wait for the bridge')
+  await new Promise((resolve) => setTimeout(resolve, 10))
+  const second = json(await call(scope, STATUS_PATH, mockRequest({ url: STATUS_PATH })))
+  assert.equal(second.xcodeMcp.state, 'ready')
+  assert.equal(second.xcodeMcp.toolCount, 54)
+  assert.equal(second.xcodeMcp.server.name, 'xcode-tools')
+  assert.equal(second.xcodeMcp.bridge, 'xcrun mcpbridge')
+  assert.equal(second.toolchain.xcodebuild.version, '27.2', 'the cached toolchain section still applies')
+
+  const forced = json(await call(scope, STATUS_PATH, mockRequest({ url: `${STATUS_PATH}?refresh=1` })))
+  assert.equal(forced.xcodeMcp.state, 'connecting', 'refresh=1 must bypass the probe cache')
+  await new Promise((resolve) => setTimeout(resolve, 10))
+  const reconnected = json(await call(scope, STATUS_PATH, mockRequest({ url: STATUS_PATH })))
+  assert.equal(reconnected.xcodeMcp.state, 'ready')
+})
+
+test('status reports a disabled or failed MCP surface instead of hanging', async () => {
+  const disabledScope = fakeScope()
+  registerAppleDevRoutes(
+    disabledScope,
+    { xcodebuild: 'xcodebuild', mcpEnabled: false },
+    fakeRunner(),
+    { async listTools() { throw new Error('must not be called') } },
+  )
+  const disabled = json(await call(disabledScope, STATUS_PATH, mockRequest({ url: STATUS_PATH })))
+  assert.equal(disabled.xcodeMcp.state, 'disabled')
+
+  const failingScope = fakeScope()
+  registerAppleDevRoutes(
+    failingScope,
+    { xcodebuild: 'xcodebuild' },
+    fakeRunner(),
+    { async listTools() { throw new Error('bridge refused') }, describe() { return {} } },
+  )
+  await call(failingScope, STATUS_PATH, mockRequest({ url: STATUS_PATH }))
+  await new Promise((resolve) => setTimeout(resolve, 10))
+  const failing = json(await call(failingScope, STATUS_PATH, mockRequest({ url: STATUS_PATH })))
+  assert.equal(failing.xcodeMcp.state, 'unavailable')
+  assert.match(failing.xcodeMcp.error, /bridge refused/)
+})
+
+test('a status payload without an MCP client stays backward compatible', async () => {
+  const scope = fakeScope()
+  registerAppleDevRoutes(scope, { xcodebuild: 'xcodebuild' }, fakeRunner())
+  const payload = json(await call(scope, STATUS_PATH, mockRequest({ url: STATUS_PATH })))
+  assert.equal(Object.hasOwn(payload, 'xcodeMcp'), false)
+})

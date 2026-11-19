@@ -20,3 +20,18 @@
         timeoutMs: 900000
         # Bytes retained per output stream; the full stream is spilled to disk.
         maxOutputBytes: 4000000
+        # Xcode's built-in MCP server (Xcode 26+), reached through its stdio
+        # bridge. The gateway tools are apple_dev_xcode_status,
+        # apple_dev_xcode_tools and apple_dev_xcode_call.
+        mcpEnabled: true
+        # Bridge executable and arguments; empty mcpArgs falls back to [mcpbridge].
+        mcpCommand: xcrun
+        mcpArgs:
+          - mcpbridge
+        # Initialize + tools/list handshake budget, and the per-call budget for
+        # builds, test runs and preview renders.
+        mcpStartupTimeoutMs: 30000
+        mcpToolCallTimeoutMs: 600000
+        # Project/file mutations through MCP (XcodeWrite, XcodeNewProject,
+        # AddInfoPlist, StringCatalogEdit, ...) stay off until explicitly enabled.
+        mcpAllowMutations: false

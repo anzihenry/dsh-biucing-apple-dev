@@ -15,12 +15,33 @@
 | `apple_dev_simulator` | 模拟器生命周期：list / boot / shutdown / erase / open，安装 `.app`、按 bundle id 启动/终止、截图、打印 app 容器路径。`boot` 不传 `device` 时自动选最新的可用 iPhone。 |
 | `apple_dev_logs` | 模拟器日志（`simctl spawn … log show`，按 process/subsystem/category/消息过滤）与最近的崩溃报告（`.ips`）。 |
 | `apple_dev_signing` | 签名身份、Provisioning Profile（解码后的元数据）、`codesign -dv`、entitlements、`codesign --verify` / `spctl` 评估。 |
+| `apple_dev_xcode_status` | Xcode 内置 MCP server 的连接状态：bridge、server 版本、工具数、打开的 workspace、是否待审批。 |
+| `apple_dev_xcode_tools` | Xcode MCP 工具的紧凑目录（名称、必填参数、是否改工程文件、一句话说明），支持 `query` 过滤。 |
+| `apple_dev_xcode_call` | 按名称调用任意 Xcode MCP 工具：构建、测试、Preview、模拟器点击/输入、控制台日志、LLDB、String Catalog 等。 |
 
-外加一个 **Apple Dev** 设置页（`设置 → Apple Dev`）：显示工具链状态与按平台分组的模拟器列表，可直接 Boot / Shutdown / Open / Erase。设置页和 `apple_dev_simulator` 调用同一套 `lib/simulator.js` 实现，没有第二套逻辑。
+外加一个 **Apple Dev** 设置页（`设置 → Apple Dev`）：显示工具链状态、**Xcode MCP 连接状态与工具数**、按平台分组的模拟器列表，可直接 Boot / Shutdown / Open / Erase。设置页和 `apple_dev_simulator` 调用同一套 `lib/simulator.js` 实现，没有第二套逻辑。
+
+## Xcode MCP（Xcode 26+）
+
+Xcode 26 起自带 MCP server，Xcode 27 的工具面已经很完整：workspace/构建/测试/Preview、模拟器交互（点击、输入、截图、UI 层级）、控制台日志、LLDB、崩溃与性能问题、工程与 String Catalog 编辑、文档检索。插件通过 `xcrun mcpbridge` 的 stdio JSON-RPC 接入这些能力，但**不把 54 个工具原样注册**——实测原始 schema 约 151 KB（≈3.8 万 token），每个请求都要付。插件改为三个小工具做网关：
+
+- `apple_dev_xcode_status`：连接状态与审批状态；
+- `apple_dev_xcode_tools`：按需列出、过滤工具目录（约 9 KB，只在调用时进入上下文）；
+- `apple_dev_xcode_call`：按名称透传参数调用任意 MCP 工具。
+
+首次调用需要审批：Xcode 只对"被 agent 打开过 workspace"的客户端放行。所以第一次应调用：
+
+```text
+apple_dev_xcode_call { "tool": "XcodeOpenWorkspace", "arguments": { "path": "/abs/path/App.xcodeproj" } }
+```
+
+Xcode 会弹出审批（agent + 该目录访问权限），批准一次后其余工具复用。`apple_dev_xcode_status` 会把这条路径直接写在提示里。**改工程文件/构建设置的工具默认禁止**（`XcodeWrite`、`XcodeUpdate`、`XcodeRM`、`XcodeNewProject`、`AddInfoPlist`、`StringCatalogEdit` 等 13 个），需要显式打开 `mcpAllowMutations: true`。
+
+MCP 返回的图片（Preview 截图、设备截图）落到 `.apple-dev/logs/mcp/`，工具只回路径与大小；超长文本落到 `.apple-dev/logs/mcp-*.log`。设置页的「Xcode MCP」卡片会显示连接状态、server 版本、工具数与审批状态，首次探测在后台完成，不会拖慢页面。
 
 ## 环境要求
 
-- macOS，已安装 Xcode（含 Command Line Tools 与至少一个模拟器运行时）
+- macOS，已安装 Xcode（含 Command Line Tools 与至少一个模拟器运行时）；Xcode MCP 需要 Xcode 26+ 且 Xcode 正在运行
 - DeepSeek Harness 桌面版或 Web 版（Host 侧需要 `tools`、`subprocess`、`webServer` 服务）
 - 模拟器 GUI：Xcode 26+ 使用 `DeviceHub.app`，旧版使用 `Simulator.app`；`apple_dev_simulator` 的 `open` 动作会按顺序尝试两者及其在 Xcode 内的路径
 
@@ -58,6 +79,11 @@ plugin_manager(action: "install_bundle", target: "/Users/xiejinheng/Coding/dsh-b
 | `logDirectory` | `.apple-dev/logs` | 构建/测试完整日志与截图目录。 |
 | `timeoutMs` | `900000` | 单条命令墙钟上限。 |
 | `maxOutputBytes` | `4000000` | 每个输出流保留字节；完整流另存 spill 文件。 |
+| `mcpEnabled` | `true` | 是否注册三个 Xcode MCP 网关工具。 |
+| `mcpCommand` / `mcpArgs` | `xcrun` / `[mcpbridge]` | MCP stdio bridge 的启动命令。 |
+| `mcpStartupTimeoutMs` | `30000` | initialize + tools/list 的握手预算。 |
+| `mcpToolCallTimeoutMs` | `600000` | 单次 MCP 调用预算（构建、测试、Preview 渲染可能很久）。 |
+| `mcpAllowMutations` | `false` | 允许 MCP 修改工程文件与构建设置；默认只读。 |
 
 工作区已把 `.apple-dev/` 加入 `.gitignore`。
 
@@ -107,6 +133,8 @@ node --test
 ## 已知限制
 
 - 优先面向**模拟器**工作流；真机（`devicectl`）暂未纳入工具，签名工具能帮助判断真机部署问题。
+- Xcode MCP 的首次审批必须在 Xcode 界面点一次；无头模式需要 `sudo xcrun mcp-server enable`（插件不做提权）。
+- MCP 工具依赖 Xcode 当前打开的 workspace/scheme/run destination，多工程并行时以 Xcode 的当前状态为准。
 - `apple_dev_logs` 的崩溃报告按“最新一份 + 路径”返回，符号化需配合 `atos` 与 dSYM 手动完成。
 - 构建/测试日志解析覆盖常见 `xcodebuild` 与 `swift test` 输出（XCTest 与 Swift Testing 两种计数）；极端自定义 formatter 可能让部分错误行只出现在 `logPath` 中。
 - 设置页的视觉呈现（明暗主题、导航项排布）需在运行中的 GUI 里人工确认；本仓库的自动验证覆盖注册、路由契约与页面状态机。

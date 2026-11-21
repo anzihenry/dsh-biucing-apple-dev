@@ -37,3 +37,8 @@
         # Project/file mutations through MCP (XcodeWrite, XcodeNewProject,
         # AddInfoPlist, StringCatalogEdit, ...) stay off until explicitly enabled.
         mcpAllowMutations: false
+        # Visual regression baselines (apple_dev_visual): latest/baseline PNGs,
+        # per-channel tolerance (0-255) and the diff ratio still treated as a match.
+        visualDirectory: .apple-dev/visual
+        visualTolerance: 12
+        visualMaxDiffRatio: 0.002

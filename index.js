@@ -17,6 +17,7 @@ import { createEnvTools } from './lib/tools-env.js'
 import { createProjectTools } from './lib/tools-project.js'
 import { createDiagTools } from './lib/tools-diag.js'
 import { createDeviceTools } from './lib/tools-device.js'
+import { createVisualTools } from './lib/tools-visual.js'
 import { createMcpTools } from './lib/tools-mcp.js'
 import { createXcodeMcp } from './lib/mcp.js'
 import { registerAppleDevRoutes } from './lib/ui.js'
@@ -67,6 +68,7 @@ export function apply(ctx, config) {
     createProjectTools,
     createDiagTools,
     createDeviceTools,
+    (scope, cfg, run) => createVisualTools(scope, cfg, run, mcp),
     (scope, cfg, run) => (cfg.mcpEnabled ? createMcpTools(scope, cfg, run, mcp) : []),
   ]
 

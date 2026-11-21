@@ -16,6 +16,7 @@
 | `apple_dev_device` | 真机（`devicectl`）：列出已配对设备、详情/已装应用/运行进程、安装/卸载、启动/终止、截屏。 |
 | `apple_dev_logs` | 模拟器日志（`simctl spawn … log show`，按 process/subsystem/category/消息过滤）、最近的 `.ips` 崩溃报告，以及用 dSYM + `atos` 的崩溃符号化（`symbolicate`）。 |
 | `apple_dev_signing` | 签名身份、Provisioning Profile（解码后的元数据）、`codesign -dv`、entitlements、`codesign --verify` / `spctl` 评估。 |
+| `apple_dev_visual` | 截图基线与像素回归：`capture`（模拟器截图 / 现有 PNG / Xcode MCP Preview）、`approve`、`compare`（带容差的像素 diff + 红色标注 diff 图）、`list`。 |
 | `apple_dev_xcode_status` | Xcode 内置 MCP server 的连接状态：bridge、server 版本、工具数、打开的 workspace、是否待审批。 |
 | `apple_dev_xcode_tools` | Xcode MCP 工具的紧凑目录（名称、必填参数、是否改工程文件、一句话说明），支持 `query` 过滤。 |
 | `apple_dev_xcode_call` | 按名称调用任意 Xcode MCP 工具：构建、测试、Preview、模拟器点击/输入、控制台日志、LLDB、String Catalog 等。 |
@@ -85,6 +86,9 @@ plugin_manager(action: "install_bundle", target: "/Users/xiejinheng/Coding/dsh-b
 | `mcpStartupTimeoutMs` | `30000` | initialize + tools/list 的握手预算。 |
 | `mcpToolCallTimeoutMs` | `600000` | 单次 MCP 调用预算（构建、测试、Preview 渲染可能很久）。 |
 | `mcpAllowMutations` | `false` | 允许 MCP 修改工程文件与构建设置；默认只读。 |
+| `visualDirectory` | `.apple-dev/visual` | 截图基线目录（每个 name 一个子目录）。 |
+| `visualTolerance` | `12` | 像素比较的每通道容差（0-255）。 |
+| `visualMaxDiffRatio` | `0.002` | 仍判定为一致的差异像素占比上限（0.2%）。 |
 
 工作区已把 `.apple-dev/` 加入 `.gitignore`。
 
@@ -127,6 +131,8 @@ node --test
 | `lib/device.js` | `devicectl` 真机命令与 JSON 解析 |
 | `lib/crash.js` | `.ips` 解析、dSYM 查找与 `atos` 符号化 |
 | `lib/tools-device.js` | `apple_dev_device` 工具 |
+| `lib/visual.js` | 截图基线存储、BMP 解析/编码与像素 diff |
+| `lib/tools-visual.js` | `apple_dev_visual` 工具 |
 | `lib/tools-*.js` | 各工具的 schema / execute / render |
 | `lib/mcp.js` | Xcode MCP stdio 客户端（JSON-RPC、懒连接、超时与重连） |
 | `lib/tools-mcp.js` | 三个 MCP 网关工具与产物落盘 |

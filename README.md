@@ -2,7 +2,7 @@
 
 一个 [DeepSeek Harness](https://github.com/deepseek-harness) 持久化插件，为 Apple 平台（iOS / iPadOS、macOS、tvOS、watchOS、visionOS）应用的**开发、调试、测试**提供一整套 Agent 工具与一个设置页。
 
-插件把 Xcode 与 CoreSimulator 的能力交给 Agent：发现工具链、检查工程、构建、跑测试、管理模拟器、抓日志与崩溃报告、检查代码签名，并通过 Xcode 内置 MCP 调用构建、Preview、设备交互、控制台与调试器。所有命令都通过 Host 的 `subprocess` 服务执行，插件本身零依赖、无需构建步骤。
+插件把 Xcode 与 CoreSimulator 的能力交给 Agent：发现工具链、检查工程、构建、跑测试、管理模拟器与真机、抓日志与崩溃报告（含 dSYM 符号化）、检查代码签名，并通过 Xcode 内置 MCP 调用构建、Preview、设备交互、控制台与调试器。所有命令都通过 Host 的 `subprocess` 服务执行，插件本身零依赖、无需构建步骤。
 
 ## 能力
 
@@ -13,7 +13,8 @@
 | `apple_dev_build` | `xcodebuild build`（或 `swift build`）：scheme、configuration、destination、DerivedData、额外参数；解析 `BUILD SUCCEEDED/FAILED`、错误行与警告数，完整日志落盘。 |
 | `apple_dev_test` | `xcodebuild test`（或 `swift test`）：`only_testing`、result bundle；解析执行数/失败数与失败用例。 |
 | `apple_dev_simulator` | 模拟器生命周期：list / boot / shutdown / erase / open，安装 `.app`、按 bundle id 启动/终止、截图、打印 app 容器路径。`boot` 不传 `device` 时自动选最新的可用 iPhone。 |
-| `apple_dev_logs` | 模拟器日志（`simctl spawn … log show`，按 process/subsystem/category/消息过滤）与最近的崩溃报告（`.ips`）。 |
+| `apple_dev_device` | 真机（`devicectl`）：列出已配对设备、详情/已装应用/运行进程、安装/卸载、启动/终止、截屏。 |
+| `apple_dev_logs` | 模拟器日志（`simctl spawn … log show`，按 process/subsystem/category/消息过滤）、最近的 `.ips` 崩溃报告，以及用 dSYM + `atos` 的崩溃符号化（`symbolicate`）。 |
 | `apple_dev_signing` | 签名身份、Provisioning Profile（解码后的元数据）、`codesign -dv`、entitlements、`codesign --verify` / `spctl` 评估。 |
 | `apple_dev_xcode_status` | Xcode 内置 MCP server 的连接状态：bridge、server 版本、工具数、打开的 workspace、是否待审批。 |
 | `apple_dev_xcode_tools` | Xcode MCP 工具的紧凑目录（名称、必填参数、是否改工程文件、一句话说明），支持 `query` 过滤。 |
@@ -123,6 +124,9 @@ node --test
 | `lib/runner.js` | 子进程、配置、路径、会话目录 |
 | `lib/env.js` | 工具链发现与解析器 |
 | `lib/simulator.js` | `simctl` 生命周期操作 |
+| `lib/device.js` | `devicectl` 真机命令与 JSON 解析 |
+| `lib/crash.js` | `.ips` 解析、dSYM 查找与 `atos` 符号化 |
+| `lib/tools-device.js` | `apple_dev_device` 工具 |
 | `lib/tools-*.js` | 各工具的 schema / execute / render |
 | `lib/mcp.js` | Xcode MCP stdio 客户端（JSON-RPC、懒连接、超时与重连） |
 | `lib/tools-mcp.js` | 三个 MCP 网关工具与产物落盘 |
@@ -134,7 +138,9 @@ node --test
 
 ## 已知限制
 
-- 优先面向**模拟器**工作流；真机（`devicectl`）暂未纳入工具，签名工具能帮助判断真机部署问题。
+- 真机通过 `apple_dev_device`（`devicectl`）支持列表、详情、应用、进程、安装/卸载、启动/终止与截屏；安装/启动仍需要可用签名，插件不代签名，`apple_dev_signing` 只做只读诊断。
+- 真机 `terminate` 需要 PID（先用 action=processes 或 launch 返回的 pid 获取）。
+- 崩溃符号化只处理 `.ips`（JSON）；旧式 `.crash` 文本报告只做内容读取，不走 `atos`。
 - Xcode MCP 的首次审批必须在 Xcode 界面点一次；无头模式需要 `sudo xcrun mcp-server enable`（插件不做提权）。
 - MCP 工具依赖 Xcode 当前打开的 workspace/scheme/run destination，多工程并行时以 Xcode 的当前状态为准。
 - `apple_dev_logs` 的崩溃报告按“最新一份 + 路径”返回，符号化需配合 `atos` 与 dSYM 手动完成。

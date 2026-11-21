@@ -1,9 +1,9 @@
 {
   "name": "dsh-biucing-apple-dev",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
-  "description": "Apple platform development toolbox for DeepSeek Harness: build, run, test and debug iOS, macOS, tvOS, watchOS and visionOS apps with Xcode, simulators, signing inspection and Xcode's own MCP tools.",
+  "description": "Apple platform development toolbox for DeepSeek Harness: build, run, test and debug iOS, macOS, tvOS, watchOS and visionOS apps on simulators and physical devices, inspect signing, symbolicate crash reports, and call Xcode's own MCP tools.",
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",

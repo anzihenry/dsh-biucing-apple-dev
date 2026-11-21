@@ -124,6 +124,12 @@ lazily-connected Xcode MCP client). The Client module must not add routes.
   `normalizeCallResult`, `summarizeTool`, `requiredParameters`.
 - `lib/tools-mcp.js` (owned by the Lead): `createMcpTools`, `MUTATING_TOOLS`,
   `shapeCatalog`, `parseWorkspaces`, and the three report formatters.
+- `lib/device.js` (owned by the Lead): `DEVICE_ACTIONS`, devicectl argv builders,
+  `parseDeviceList`, `parseDeviceDetails`, `parseApps`, `parseProcesses`,
+  `selectDevice`, `filterApps`, `parseDevicectlJson`.
+- `lib/crash.js` (owned by the Lead): `parseIps`, `crashFacts`,
+  `collectThreads`, `collectDsymBinaries`, `symbolicateReport`,
+  `formatSymbolicatedReport`, `readCrashText`.
 - `lib/env.js` (owned by the Lead): `readToolchain`, parsing helpers,
   `listXcodes`, `parseSimulatorList`.
 - `lib/simulator.js` (owned by the Lead): `listSimulators`, `boot`, `shutdown`,
@@ -138,6 +144,8 @@ One owner per file, so concurrent changes never collide:
 | --- | --- |
 | Plugin shell, environment and simulators | `index.js`, `lib/runner.js`, `lib/format.js`, `lib/env.js`, `lib/simulator.js`, `lib/tools-env.js`, `lib/ui.js`, `locale/*`, `icon.svg`, `README.md`, `package.json`, `cordis.patch.yml` |
 | Xcode MCP gateway | `lib/mcp.js`, `lib/tools-mcp.js`, `test/mcp.test.mjs` |
+| Physical devices | `lib/device.js`, `lib/tools-device.js`, `test/device.test.mjs` |
+| Crash symbolication | `lib/crash.js`, `test/crash.test.mjs` |
 | Project inspection, build and test | `lib/project.js`, `lib/build.js`, `lib/test.js`, `lib/tools-project.js` |
 | Diagnostics: signing and logs | `lib/signing.js`, `lib/logs.js`, `lib/tools-diag.js` |
 | Settings page (Client half) | `client.js` |

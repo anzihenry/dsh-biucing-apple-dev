@@ -12,6 +12,7 @@ import { apply, inject, losslessTool } from '../index.js'
 
 const EXPECTED = [
   'apple_dev_build',
+  'apple_dev_device',
   'apple_dev_env',
   'apple_dev_logs',
   'apple_dev_project',
@@ -63,7 +64,7 @@ test('index exports the Host plugin contract', () => {
   assert.deepEqual(inject, ['tools', 'subprocess'])
 })
 
-test('apply registers all ten Apple Dev tools exactly once', () => {
+test('apply registers all eleven Apple Dev tools exactly once', () => {
   const ctx = fakeContext()
   apply(ctx, config)
   const names = ctx.toolsRegistered.map((tool) => tool.name).sort()

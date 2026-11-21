@@ -247,7 +247,7 @@ test('createDiagTools returns exactly the two valid plain tool definitions', () 
   assert.equal(signing.parameters.properties.limit.type, 'integer')
 
   const logs = tools.find((tool) => tool.name === 'apple_dev_logs')
-  assert.deepEqual(logs.parameters.properties.action.enum, ['show', 'crashes'])
+  assert.deepEqual(logs.parameters.properties.action.enum, ['show', 'crashes', 'symbolicate'])
   assert.equal(logs.parameters.properties.device.type, 'string')
   assert.equal(logs.parameters.properties.message_contains.type, 'string')
 })
@@ -305,6 +305,20 @@ test('both tool renderers render every action without throwing', () => {
       directories: [{ directory: '/tmp/crashes', exists: true, count: 1 }],
       reports: [{ name: 'Demo.ips', path: '/tmp/crashes/Demo.ips', modified: '2026-11-10T02:00:00.000Z', size: 120 }],
       newest: { name: 'Demo.ips', path: '/tmp/crashes/Demo.ips', size: 120, modified: '2026-11-10T02:00:00.000Z', metadata: parseCrashReportMetadata(CRASH_IPS), content: CRASH_IPS },
+    },
+    {
+      action: 'symbolicate',
+      ok: true,
+      facts: {
+        app: 'Demo',
+        version: '1.2',
+        osVersion: 'iOS 27.2',
+        exception: { type: 'EXC_BAD_ACCESS', signal: 'SIGSEGV', codes: '0x1' },
+        termination: { indicator: 'Segmentation fault: 11' },
+      },
+      threads: [{ index: 0, triggered: true, frames: [{ imageName: 'Demo', address: 4294967296, offset: 4096, symbol: 'main', sourceFile: 'main.swift', sourceLine: 1 }] }],
+      missingImages: [],
+      notes: [],
     },
   ]
   for (const value of logsValues) {

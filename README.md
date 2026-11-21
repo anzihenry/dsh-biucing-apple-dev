@@ -115,6 +115,8 @@ plugin_manager(action: "install_bundle", target: "/Users/xiejinheng/Coding/dsh-b
 
 ## 开发与测试
 
+一次覆盖全部工具的真实执行记录（含受签名限制的项）见 [`docs/HEALTH-CHECK.md`](docs/HEALTH-CHECK.md)。
+
 ```bash
 cd dsh-biucing-apple-dev
 node --check index.js && node --check lib/*.js && node --check client.js

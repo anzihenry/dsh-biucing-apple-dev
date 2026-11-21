@@ -18,7 +18,7 @@ import {
   parseProcesses,
   selectDevice,
 } from '../lib/device.js'
-import { createDeviceTools, formatDeviceReport } from '../lib/tools-device.js'
+import { createDeviceTools, formatDeviceReport, formatDeviceRow } from '../lib/tools-device.js'
 
 const LIST = {
   info: { outcome: 'success', commandType: 'devicectl.list.devices' },
@@ -93,6 +93,8 @@ test('selectDevice prefers the connected physical device and resolves UDID/name'
   assert.equal(selectDevice(devices, '').device.udid, '00008140-001E38DA0EF3001C')
   assert.equal(selectDevice(devices, '00008140-001e38da0ef3001c').device.name, 'Henry’s iPhone')
   assert.equal(selectDevice(devices, 'iPhone 17').device.identifier, 'SIM-1')
+  assert.match(formatDeviceRow(devices[0]), /paired · tunnel connected/, 'pairing and tunnel state are distinct')
+  assert.match(formatDeviceRow(devices[1]), /tunnel connected|paired/, 'simulated entries keep their state')
   const missing = selectDevice(devices, 'iPad')
   assert.ok(missing.error)
   assert.equal(missing.candidates.length, 2)

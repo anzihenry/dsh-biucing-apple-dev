@@ -304,7 +304,14 @@ test('both tool renderers render every action without throwing', () => {
       total: 1,
       directories: [{ directory: '/tmp/crashes', exists: true, count: 1 }],
       reports: [{ name: 'Demo.ips', path: '/tmp/crashes/Demo.ips', modified: '2026-11-10T02:00:00.000Z', size: 120 }],
-      newest: { name: 'Demo.ips', path: '/tmp/crashes/Demo.ips', size: 120, modified: '2026-11-10T02:00:00.000Z', metadata: parseCrashReportMetadata(CRASH_IPS), content: CRASH_IPS },
+      newest: {
+        name: 'Demo.ips',
+        path: '/tmp/crashes/Demo.ips',
+        size: 120,
+        modified: '2026-11-10T02:00:00.000Z',
+        metadata: parseCrashReportMetadata(CRASH_IPS),
+        summary: { app: 'Demo', version: '1.2.3', exception: { type: 'EXC_BAD_ACCESS', signal: 'SIGSEGV' }, termination: { indicator: 'Segmentation fault: 11' }, threadCount: 3, faultingThread: 0 },
+      },
     },
     {
       action: 'symbolicate',
@@ -926,7 +933,12 @@ test('apple_dev_logs crashes lists reports from a path override and reads the ne
   assert.equal(result.reports[0].name, 'New-2026-11-10.ips')
   assert.ok(result.reports[0].path.startsWith(directory))
   assert.equal(result.newest.metadata.appName, 'Demo')
-  assert.match(result.newest.content, /app_name/)
+  assert.equal(result.newest.content, undefined, 'content is omitted by default')
+  assert.equal(result.newest.summary.app, 'Demo')
+  assert.equal(result.newest.summary.exception.type, 'EXC_BAD_ACCESS')
+
+  const withContent = await logs.execute({ action: 'crashes', path: directory, include_content: true }, {})
+  assert.match(withContent.newest.content, /app_name/)
 })
 
 test('apple_dev_logs crashes falls back to host reports when no simulator is booted', async () => {

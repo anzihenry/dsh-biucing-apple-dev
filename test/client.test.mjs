@@ -121,5 +121,7 @@ test('every literal translation key used by the page exists in both dictionaries
 
 test('the MCP card is wired into the ready page state', () => {
   assert.match(source, /function McpCard\(props\)/)
-  assert.match(source, /snapshot\.xcodeMcp \? h\(McpCard, \{ mcp: snapshot\.xcodeMcp, t: t \}\) : null/)
+  assert.match(source, /snapshot\.xcodeMcp \? h\(McpCard, \{[\s\S]*?mcp: snapshot\.xcodeMcp/)
+  assert.match(source, /runMcpAction\('mcp_reconnect'\)/)
+  assert.match(source, /runMcpAction\('mcp_open_workspace', \{ path: path \}\)/)
 })

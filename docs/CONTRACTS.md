@@ -110,7 +110,12 @@ lazily-connected Xcode MCP client). The Client module must not add routes.
   `{ action: 'boot'|'shutdown'|'open'|'erase', device: string }` (device is a
   UDID or exact device name) →
   `{ ok: boolean, message: string, error?: string, simulators?: [...] }`.
-  Same-origin only; never expose a generic command endpoint.
+  MCP actions share the same route: `{ action: 'mcp_reconnect' }` resets the
+  bridge and starts a probe, and `{ action: 'mcp_open_workspace', path: string }`
+  validates an absolute `.xcodeproj`/`.xcworkspace` path (or `~/...`), calls
+  `XcodeOpenWorkspace` with a 120 s deadline, and returns the MCP status.
+  Both are refused when `mcpEnabled` is false. Same-origin only; never expose a
+  generic command endpoint.
 
 ## Shared functions
 

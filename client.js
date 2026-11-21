@@ -88,6 +88,13 @@ window.__ModuleLoader__.load({
         'mcp.connectingHint': 'Starting xcrun mcpbridge and reading its tool catalog.',
         'mcp.unavailableHint': 'Start Xcode 26 or later, then refresh. The bridge process is xcrun mcpbridge.',
         'mcp.disabledHint': 'Set mcpEnabled: true in the plugin configuration to expose Xcode MCP tools.',
+        'mcp.reconnect': 'Reconnect',
+        'mcp.reconnecting': 'Reconnecting…',
+        'mcp.openWorkspace': 'Open workspace',
+        'mcp.opening': 'Opening…',
+        'mcp.openPlaceholder': '/path/to/App.xcodeproj',
+        'mcp.actionDone': 'Done.',
+        'mcp.actionFailed': 'The MCP action failed.',
         'simulators.title': 'Simulators',
         'simulators.count': '{count} total',
         'simulators.empty': 'No simulators installed',
@@ -158,6 +165,13 @@ window.__ModuleLoader__.load({
         'mcp.connectingHint': '正在启动 xcrun mcpbridge 并读取工具目录。',
         'mcp.unavailableHint': '请启动 Xcode 26 或更新版本后刷新；桥接进程为 xcrun mcpbridge。',
         'mcp.disabledHint': '在插件配置中设置 mcpEnabled: true 后即可暴露 Xcode MCP 工具。',
+        'mcp.reconnect': '重新连接',
+        'mcp.reconnecting': '正在重连…',
+        'mcp.openWorkspace': '打开工程',
+        'mcp.opening': '正在打开…',
+        'mcp.openPlaceholder': '/path/to/App.xcodeproj',
+        'mcp.actionDone': '已完成。',
+        'mcp.actionFailed': 'MCP 操作失败。',
         'simulators.title': '模拟器',
         'simulators.count': '共 {count} 个',
         'simulators.empty': '没有安装模拟器',
@@ -265,6 +279,12 @@ window.__ModuleLoader__.load({
       '.biucing-adp-card-title{margin:0;font-size:14px;line-height:22px;font-weight:600;color:var(--dsw-alias-label-primary);}',
       '.biucing-adp-card-meta{font-size:12px;line-height:18px;color:var(--dsw-alias-label-caption,var(--dsw-alias-label-secondary));',
       '.biucing-adp-card-hint{margin:0;font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary);}',
+      '.biucing-adp-mcp-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-top:10px;border-top:1px solid var(--dsw-alias-border-l1);}',
+      '.biucing-adp-input{flex:1 1 200px;min-width:0;height:28px;padding:0 11px;border-radius:14px;border:1px solid var(--dsw-alias-border-l2);',
+      'background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;line-height:18px;}',
+      '.biucing-adp-input::placeholder{color:var(--dsw-alias-label-tertiary);}',
+      '.biucing-adp-input:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px;}',
+      '.biucing-adp-input:disabled{opacity:.5;}',
       'font-variant-numeric:tabular-nums;}',
       '.biucing-adp-fields{display:flex;flex-direction:column;gap:0;margin:0;}',
       '.biucing-adp-field{display:grid;grid-template-columns:minmax(132px,.85fr) minmax(0,1.6fr);gap:4px 16px;align-items:start;',
@@ -854,6 +874,9 @@ window.__ModuleLoader__.load({
      */
     function McpCard(props) {
       const t = props.t;
+      const [workspacePath, setWorkspacePath] = useState('');
+      const busy = typeof props.busy === 'string' ? props.busy : null;
+      const notice = props.notice && typeof props.notice === 'object' ? props.notice : null;
       const info = props.mcp && typeof props.mcp === 'object' ? props.mcp : {};
       const state = typeof info.state === 'string' ? info.state : 'unknown';
       const server = info.server && typeof info.server === 'object' ? info.server : {};
@@ -872,6 +895,8 @@ window.__ModuleLoader__.load({
       const serverLabel = server.name
         ? String(server.name) + (server.version ? ' ' + server.version : '')
         : t('value.unknown');
+      const disabled = state === 'disabled';
+      const canOpen = !disabled && !busy && workspacePath.trim().length > 0;
       const rows = [
         { key: 'server', label: t('mcp.server'), value: serverLabel },
         {
@@ -893,6 +918,36 @@ window.__ModuleLoader__.load({
             h('dt', { className: 'biucing-adp-field-label' }, row.label),
             h('dd', { className: 'biucing-adp-field-value' + (row.mono ? ' biucing-adp-mono' : '') }, row.value)))),
         info.error ? h(Notice, { tone: 'error', text: String(info.error) }) : null,
+        h('div', { className: 'biucing-adp-mcp-actions' },
+          h('input', {
+            className: 'biucing-adp-input',
+            type: 'text',
+            value: workspacePath,
+            placeholder: t('mcp.openPlaceholder'),
+            'aria-label': t('mcp.openPlaceholder'),
+            disabled: disabled || Boolean(busy),
+            onChange: (event) => setWorkspacePath(event && event.target ? event.target.value : ''),
+            onKeyDown: (event) => {
+              if (event && event.key === 'Enter' && canOpen) props.onOpenWorkspace(workspacePath);
+            },
+          }),
+          h('button', {
+            type: 'button',
+            className: 'biucing-adp-btn biucing-adp-btn-sm',
+            disabled: !canOpen,
+            onClick: () => props.onOpenWorkspace(workspacePath),
+          },
+          busy === 'mcp_open_workspace' ? h('span', { className: 'biucing-adp-spinner', 'aria-hidden': true }) : null,
+          h('span', null, busy === 'mcp_open_workspace' ? t('mcp.opening') : t('mcp.openWorkspace'))),
+          h('button', {
+            type: 'button',
+            className: 'biucing-adp-btn biucing-adp-btn-sm',
+            disabled: disabled || Boolean(busy),
+            onClick: () => props.onReconnect(),
+          },
+          busy === 'mcp_reconnect' ? h('span', { className: 'biucing-adp-spinner', 'aria-hidden': true }) : null,
+          h('span', null, busy === 'mcp_reconnect' ? t('mcp.reconnecting') : t('mcp.reconnect')))),
+        notice ? h(Notice, { tone: notice.tone, text: notice.text }) : null,
         h('p', { className: 'biucing-adp-card-hint' }, t(hintKey)));
     }
 
@@ -968,6 +1023,8 @@ window.__ModuleLoader__.load({
       const [refreshing, setRefreshing] = useState(false);
       const [notice, setNotice] = useState(null);
       const [busy, setBusy] = useState(null);
+      const [mcpBusy, setMcpBusy] = useState(null);
+      const [mcpNotice, setMcpNotice] = useState(null);
 
       const aliveRef = useRef(true);
       const seqRef = useRef(0);
@@ -1039,6 +1096,7 @@ window.__ModuleLoader__.load({
 
       const refresh = useCallback(() => {
         setNotice(null);
+        setMcpNotice(null);
         void fetchStatus(true);
       }, [fetchStatus]);
 
@@ -1120,6 +1178,43 @@ window.__ModuleLoader__.load({
         }
       };
 
+      /**
+       * POST one Xcode MCP action (reconnect or open workspace) and fold the
+       * outcome into a card-local notice; the status refetch then repaints the
+       * badge and tool count.
+       * @param {string} action mcp_reconnect or mcp_open_workspace.
+       * @param {object} [payload] extra body fields (path).
+       * @returns {Promise<void>} settles after the notice update.
+       */
+      const runMcpAction = async (action, payload) => {
+        if (mcpBusy) return;
+        setMcpNotice(null);
+        setMcpBusy(action);
+        try {
+          const result = await requestJson(ACTION_ENDPOINT, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(Object.assign({ action: action }, payload || {})),
+          });
+          if (!aliveRef.current) return;
+          if (result.kind === 'missing' || result.kind === 'not-json') {
+            setMcpNotice({ tone: 'error', text: tRef.current('error.missingTitle') });
+            return;
+          }
+          const body = result.body && typeof result.body === 'object' ? result.body : {};
+          if (result.kind === 'ok' && body.ok !== false) {
+            setMcpNotice({ tone: 'success', text: body.message ? String(body.message) : tRef.current('mcp.actionDone') });
+            void fetchStatus(false);
+          } else {
+            setMcpNotice({ tone: 'error', text: body.error ? String(body.error) : tRef.current('mcp.actionFailed') });
+          }
+        } catch (error) {
+          if (aliveRef.current) setMcpNotice({ tone: 'error', text: tRef.current('mcp.actionFailed') + ' ' + errorText(error) });
+        } finally {
+          if (aliveRef.current) setMcpBusy(null);
+        }
+      };
+
       const ready = phase === 'ready' && snapshot !== null;
       const updatedLabel = fetchedAt ? formatTimestamp(fetchedAt) : t('never');
       const loadingNow = phase === 'loading' || refreshing;
@@ -1165,7 +1260,14 @@ window.__ModuleLoader__.load({
             ? h(React.Fragment, null,
               reportError ? h(Notice, { tone: 'error', text: reportError }) : null,
               h(ToolchainCard, { snapshot: snapshot, t: t }),
-              snapshot.xcodeMcp ? h(McpCard, { mcp: snapshot.xcodeMcp, t: t }) : null,
+              snapshot.xcodeMcp ? h(McpCard, {
+                mcp: snapshot.xcodeMcp,
+                t: t,
+                busy: mcpBusy,
+                notice: mcpNotice,
+                onReconnect: () => { void runMcpAction('mcp_reconnect'); },
+                onOpenWorkspace: (path) => { void runMcpAction('mcp_open_workspace', { path: path }); },
+              }) : null,
               h(SimulatorsCard, {
                 simulators: simulators,
                 t: t,

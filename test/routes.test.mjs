@@ -272,3 +272,74 @@ test('a status payload without an MCP client stays backward compatible', async (
   const payload = json(await call(scope, STATUS_PATH, mockRequest({ url: STATUS_PATH })))
   assert.equal(Object.hasOwn(payload, 'xcodeMcp'), false)
 })
+
+function fakeMcp(overrides = {}) {
+  const calls = []
+  return {
+    calls,
+    async listTools() {
+      return [{ name: 'BuildProject' }]
+    },
+    describe() {
+      return { state: 'ready', server: { name: 'xcode-tools', version: '25464' }, toolCount: 1, approval: 'granted' }
+    },
+    reconnect() {
+      calls.push({ reconnect: true })
+    },
+    async callTool(name, args) {
+      calls.push({ name, args })
+      if (overrides.result) return overrides.result
+      return { isError: false, text: '{"workspaceIdentifier":"workspace1","workspacePath":"/tmp/Demo.xcodeproj"}', images: [] }
+    },
+  }
+}
+
+test('POST mcp_reconnect resets the bridge through the allowed action', async () => {
+  const scope = fakeScope()
+  const mcp = fakeMcp()
+  registerAppleDevRoutes(scope, { xcodebuild: 'xcodebuild' }, fakeRunner(), mcp)
+  const res = await call(scope, ACTION_PATH, mockRequest({ method: 'POST', url: ACTION_PATH, body: { action: 'mcp_reconnect' } }))
+  assert.equal(res.status, 200)
+  const payload = json(res)
+  assert.equal(payload.ok, true)
+  assert.equal(payload.action, 'mcp_reconnect')
+  assert.equal(mcp.calls.filter((call) => call.reconnect).length, 1)
+  assert.equal(payload.xcodeMcp.state, 'connecting', 'the card is told to probe again')
+})
+
+test('POST mcp_open_workspace validates the path and calls XcodeOpenWorkspace', async () => {
+  const scope = fakeScope()
+  const mcp = fakeMcp()
+  registerAppleDevRoutes(scope, { xcodebuild: 'xcodebuild' }, fakeRunner(), mcp)
+
+  const opened = await call(scope, ACTION_PATH, mockRequest({ method: 'POST', url: ACTION_PATH, body: { action: 'mcp_open_workspace', path: '/tmp/Demo.xcodeproj' } }))
+  assert.equal(opened.status, 200)
+  const payload = json(opened)
+  assert.equal(payload.ok, true)
+  assert.match(payload.message, /Demo\.xcodeproj/)
+  const callRecord = mcp.calls.find((entry) => entry.name === 'XcodeOpenWorkspace')
+  assert.deepEqual(callRecord.args, { path: '/tmp/Demo.xcodeproj' })
+
+  const missing = await call(scope, ACTION_PATH, mockRequest({ method: 'POST', url: ACTION_PATH, body: { action: 'mcp_open_workspace' } }))
+  assert.equal(missing.status, 400)
+  const wrongKind = await call(scope, ACTION_PATH, mockRequest({ method: 'POST', url: ACTION_PATH, body: { action: 'mcp_open_workspace', path: '/tmp/notes.txt' } }))
+  assert.equal(wrongKind.status, 400)
+  const control = await call(scope, ACTION_PATH, mockRequest({ method: 'POST', url: ACTION_PATH, body: { action: 'mcp_open_workspace', path: '/tmp/a\u0000.xcodeproj' } }))
+  assert.equal(control.status, 400)
+})
+
+test('MCP actions report a refused open and a disabled surface', async () => {
+  const refusedScope = fakeScope()
+  const refused = fakeMcp({ result: { isError: true, text: 'SourceFileNotFoundInProjectError', images: [] } })
+  registerAppleDevRoutes(refusedScope, { xcodebuild: 'xcodebuild' }, fakeRunner(), refused)
+  const refusedRes = await call(refusedScope, ACTION_PATH, mockRequest({ method: 'POST', url: ACTION_PATH, body: { action: 'mcp_open_workspace', path: '/tmp/Demo.xcodeproj' } }))
+  assert.equal(refusedRes.status, 200)
+  assert.equal(json(refusedRes).ok, false)
+  assert.match(json(refusedRes).error, /SourceFileNotFound/)
+
+  const disabledScope = fakeScope()
+  registerAppleDevRoutes(disabledScope, { xcodebuild: 'xcodebuild', mcpEnabled: false }, fakeRunner(), fakeMcp())
+  const disabledRes = await call(disabledScope, ACTION_PATH, mockRequest({ method: 'POST', url: ACTION_PATH, body: { action: 'mcp_reconnect' } }))
+  assert.equal(disabledRes.status, 400)
+  assert.match(json(disabledRes).error, /not enabled/)
+})

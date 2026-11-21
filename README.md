@@ -21,7 +21,7 @@
 | `apple_dev_xcode_tools` | Xcode MCP 工具的紧凑目录（名称、必填参数、是否改工程文件、一句话说明），支持 `query` 过滤。 |
 | `apple_dev_xcode_call` | 按名称调用任意 Xcode MCP 工具：构建、测试、Preview、模拟器点击/输入、控制台日志、LLDB、String Catalog 等。 |
 
-外加一个 **Apple Dev** 设置页（`设置 → Apple Dev`）：显示工具链状态、**Xcode MCP 连接状态与工具数**、按平台分组的模拟器列表，可直接 Boot / Shutdown / Open / Erase。设置页和 `apple_dev_simulator` 调用同一套 `lib/simulator.js` 实现，没有第二套逻辑。
+外加一个 **Apple Dev** 设置页（`设置 → Apple Dev`）：显示工具链状态、**Xcode MCP 连接状态与工具数**、按平台分组的模拟器列表，可直接 Boot / Shutdown / Open / Erase；MCP 卡片还能**重新连接**，或输入 `.xcodeproj`/`.xcworkspace` 路径**打开工程**（触发 Xcode 的一次性审批）。设置页和 `apple_dev_simulator` 调用同一套 `lib/simulator.js` 实现，没有第二套逻辑。
 
 ## Xcode MCP（Xcode 26+）
 

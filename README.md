@@ -16,6 +16,7 @@
 | `apple_dev_device` | 真机（`devicectl`）：列出已配对设备、详情/已装应用/运行进程、安装/卸载、启动/终止、截屏。 |
 | `apple_dev_logs` | 模拟器日志（`simctl spawn … log show`，按 process/subsystem/category/消息过滤）、最近的 `.ips` 崩溃报告，以及用 dSYM + `atos` 的崩溃符号化（`symbolicate`）。 |
 | `apple_dev_signing` | 签名身份、Provisioning Profile（解码后的元数据）、`codesign -dv`、entitlements、`codesign --verify` / `spctl` 评估。 |
+| `apple_dev_release` | 发布链路：`archive`（`xcodebuild archive`，输出 `.xcarchive` 与 dSYMs）、`export`（`-exportArchive` + 生成/自带 ExportOptions.plist，输出 IPA）、`lanes`（查找 Fastfile 并列出 lane）、`lane`（运行 fastlane lane，上传交给项目自己的 `beta`/`deliver` lane）。 |
 | `apple_dev_visual` | 截图基线与像素回归：`capture`（模拟器截图 / 现有 PNG / Xcode MCP Preview）、`approve`、`compare`（带容差的像素 diff + 红色标注 diff 图）、`list`。 |
 | `apple_dev_xcode_status` | Xcode 内置 MCP server 的连接状态：bridge、server 版本、工具数、打开的 workspace、是否待审批。 |
 | `apple_dev_xcode_tools` | Xcode MCP 工具的紧凑目录（名称、必填参数、是否改工程文件、一句话说明），支持 `query` 过滤。 |
@@ -89,6 +90,8 @@ plugin_manager(action: "install_bundle", target: "/Users/xiejinheng/Coding/dsh-b
 | `visualDirectory` | `.apple-dev/visual` | 截图基线目录（每个 name 一个子目录）。 |
 | `visualTolerance` | `12` | 像素比较的每通道容差（0-255）。 |
 | `visualMaxDiffRatio` | `0.002` | 仍判定为一致的差异像素占比上限（0.2%）。 |
+| `archiveDirectory` | `.apple-dev/archives` | `archive` 的输出目录（`.xcarchive`）。 |
+| `exportDirectory` | `.apple-dev/exports` | `export` 的输出目录（IPA 与生成的 plist）。 |
 
 工作区已把 `.apple-dev/` 加入 `.gitignore`。
 
@@ -133,6 +136,8 @@ node --test
 | `lib/tools-device.js` | `apple_dev_device` 工具 |
 | `lib/visual.js` | 截图基线存储、BMP 解析/编码与像素 diff |
 | `lib/tools-visual.js` | `apple_dev_visual` 工具 |
+| `lib/release.js` | 归档/导出 argv、ExportOptions.plist、fastlane lane 解析 |
+| `lib/tools-release.js` | `apple_dev_release` 工具 |
 | `lib/tools-*.js` | 各工具的 schema / execute / render |
 | `lib/mcp.js` | Xcode MCP stdio 客户端（JSON-RPC、懒连接、超时与重连） |
 | `lib/tools-mcp.js` | 三个 MCP 网关工具与产物落盘 |

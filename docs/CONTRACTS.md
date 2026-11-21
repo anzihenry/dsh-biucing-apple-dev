@@ -138,6 +138,9 @@ lazily-connected Xcode MCP client). The Client module must not add routes.
 - `lib/visual.js` (owned by the Lead): `parseBmp`, `encodeBmp`, `compareRgb`,
   `visualPaths`, `storeCapture`, `approveBaseline`, `listVisualEntries`,
   `pngToBmp`, `bmpToPng`, `loadPngPixels`.
+- `lib/release.js` (owned by the Lead): `buildArchiveArgv`, `buildExportArgv`,
+  `buildExportOptionsPlist`, `buildLaneArgv`, `parseReleaseOutput`,
+  `parseLanes`, `findFastlaneRoot`, `latestArchive`, `findIpa`.
 - `lib/env.js` (owned by the Lead): `readToolchain`, parsing helpers,
   `listXcodes`, `parseSimulatorList`.
 - `lib/simulator.js` (owned by the Lead): `listSimulators`, `boot`, `shutdown`,
@@ -155,6 +158,7 @@ One owner per file, so concurrent changes never collide:
 | Physical devices | `lib/device.js`, `lib/tools-device.js`, `test/device.test.mjs` |
 | Crash symbolication | `lib/crash.js`, `test/crash.test.mjs` |
 | Visual regression | `lib/visual.js`, `lib/tools-visual.js`, `test/visual.test.mjs` |
+| Release (archive/export/fastlane) | `lib/release.js`, `lib/tools-release.js`, `test/release.test.mjs` |
 | Project inspection, build and test | `lib/project.js`, `lib/build.js`, `lib/test.js`, `lib/tools-project.js` |
 | Diagnostics: signing and logs | `lib/signing.js`, `lib/logs.js`, `lib/tools-diag.js` |
 | Settings page (Client half) | `client.js` |

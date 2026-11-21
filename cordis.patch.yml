@@ -42,3 +42,6 @@
         visualDirectory: .apple-dev/visual
         visualTolerance: 12
         visualMaxDiffRatio: 0.002
+        # Release artifacts for apple_dev_release (archive/export).
+        archiveDirectory: .apple-dev/archives
+        exportDirectory: .apple-dev/exports

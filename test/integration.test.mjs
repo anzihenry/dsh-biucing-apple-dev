@@ -16,6 +16,7 @@ const EXPECTED = [
   'apple_dev_env',
   'apple_dev_logs',
   'apple_dev_project',
+  'apple_dev_release',
   'apple_dev_signing',
   'apple_dev_simulator',
   'apple_dev_test',
@@ -65,7 +66,7 @@ test('index exports the Host plugin contract', () => {
   assert.deepEqual(inject, ['tools', 'subprocess'])
 })
 
-test('apply registers all twelve Apple Dev tools exactly once', () => {
+test('apply registers all thirteen Apple Dev tools exactly once', () => {
   const ctx = fakeContext()
   apply(ctx, config)
   const names = ctx.toolsRegistered.map((tool) => tool.name).sort()

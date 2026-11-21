@@ -1,9 +1,11 @@
 # dsh-biucing-apple-dev: Apple platform development, debugging and testing.
 #
-# The Host row carries the whole feature: seven agent tools (environment,
-# project, build, test, simulator, logs, signing) plus a read-only status route
-# and one action route that the "Apple Dev" settings page calls. The Client half
-# (client.js) renders that page; the Host half works without it.
+# The Host row carries the whole feature: ten agent tools — environment,
+# project, build, test, simulator, logs and signing, plus the three Xcode MCP
+# gateway tools (status, tools, call) — one read-only status route and one
+# action route that the "Apple Dev" settings page calls. The Client half
+# (client.js) renders that page, including the Xcode MCP status card; the Host
+# half works without it.
 - insert:
     - id: biucing-apple-dev
       name: 'dsh-biucing-apple-dev'

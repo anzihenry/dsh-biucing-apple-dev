@@ -10,8 +10,9 @@ Read it before editing `lib/`.
   profile; a bare import of `@deepseek-ai/*` fails at load time.
 - The plugin is a Cordis **Host** bundle. `index.js` exports `inject` and
   `apply(ctx, config)`.
-- Every child process goes through the `subprocess` service, wrapped by
-  `lib/runner.js` `createRunner(ctx, config)`. Never use `node:child_process`.
+- Every child process goes through the `subprocess` service. One-shot
+  commands go through `lib/runner.js` `createRunner(ctx, config)`; never use
+  `node:child_process`.
 - The one long-lived child is the Xcode MCP bridge (`lib/mcp.js`). It uses
   `subprocess.spawn` with `stdio: { stdin: 'pipe', stdout: 'pipe', ... }` — the
   service's documented protocol-framing mode — and speaks newline-delimited
@@ -24,7 +25,8 @@ Read it before editing `lib/`.
 
 ## Tool factories
 
-Each `lib/tools-*.js` exports one factory with this exact signature:
+Each `lib/tools-*.js` exports one factory that receives `(ctx, config,
+runner)` and returns tool definitions:
 
 ```js
 export function createXxxTools(ctx, config, runner) {

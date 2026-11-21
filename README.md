@@ -2,7 +2,7 @@
 
 一个 [DeepSeek Harness](https://github.com/deepseek-harness) 持久化插件，为 Apple 平台（iOS / iPadOS、macOS、tvOS、watchOS、visionOS）应用的**开发、调试、测试**提供一整套 Agent 工具与一个设置页。
 
-插件把 Xcode 与 CoreSimulator 的能力交给 Agent：发现工具链、检查工程、构建、跑测试、管理模拟器、抓日志与崩溃报告、检查代码签名。所有命令都通过 Host 的 `subprocess` 服务执行，插件本身零依赖、无需构建步骤。
+插件把 Xcode 与 CoreSimulator 的能力交给 Agent：发现工具链、检查工程、构建、跑测试、管理模拟器、抓日志与崩溃报告、检查代码签名，并通过 Xcode 内置 MCP 调用构建、Preview、设备交互、控制台与调试器。所有命令都通过 Host 的 `subprocess` 服务执行，插件本身零依赖、无需构建步骤。
 
 ## 能力
 
@@ -124,9 +124,11 @@ node --test
 | `lib/env.js` | 工具链发现与解析器 |
 | `lib/simulator.js` | `simctl` 生命周期操作 |
 | `lib/tools-*.js` | 各工具的 schema / execute / render |
+| `lib/mcp.js` | Xcode MCP stdio 客户端（JSON-RPC、懒连接、超时与重连） |
+| `lib/tools-mcp.js` | 三个 MCP 网关工具与产物落盘 |
 | `lib/ui.js` | `/dsh-biucing-apple-dev/status` 与 `/action` 路由 |
 | `client.js` | Apple Dev 设置页（Client 模块） |
-| `test/` | 解析器与设备选择单元测试 |
+| `test/` | 解析器、工具、路由、MCP 协议与客户端字典测试 |
 
 内部契约见 [`docs/CONTRACTS.md`](docs/CONTRACTS.md)。
 

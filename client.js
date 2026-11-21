@@ -4,7 +4,7 @@
  * Renders one settings page plus its navigation icon and nothing else. All
  * data comes from the Host half's two loopback JSON routes (`lib/ui.js`):
  *
- *   GET  /dsh-biucing-apple-dev/status  -> toolchain, signing, simulators
+ *   GET  /dsh-biucing-apple-dev/status  -> toolchain, signing, simulators, xcodeMcp
  *   POST /dsh-biucing-apple-dev/action  -> { action, device } -> simulators
  *
  * A Host without those routes (the bundle's Host half not installed/enabled)
